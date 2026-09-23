@@ -1,1 +1,1 @@
-# Stpper-Motor-Torque-Curve-Profiles
+Stepper Dynamics Pro is an advanced, browser-based motion control utility designed to simulate real-world physical limits and electrical saturation in open-loop stepper motor systems. By modeling the complex interactions of phase inductance, Back-EMF, and AC impedance, it generates highly accurate torque decay curves to aid in precise hardware selection and system integration.
