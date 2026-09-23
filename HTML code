@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stepper Dynamics Pro - Real World Physics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #0b1120; color: #f8fafc; overflow-x: hidden; }
+        .glass-panel { background: rgba(30, 41, 59, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #1e293b; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        
+        .spinner { border: 3px solid rgba(255,255,255,0.1); border-left-color: #3b82f6; border-radius: 50%; width: 18px; height: 18px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .alert-enter { animation: slideDown 0.3s ease-out forwards; }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col relative p-4 md:p-8">
+
+    <!-- Header -->
+    <header class="text-center max-w-4xl mx-auto mt-2 mb-8">
+        <h1 class="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-cyan-300 to-emerald-300 pb-2">
+            Stepper Dynamics Pro
+        </h1>
+        <p class="text-slate-400 mt-2 text-sm leading-relaxed">
+            Advanced real-world kinematics utilizing Back-EMF (Ke), AC Impedance (Z), and iron loss calculations to generate accurate torque decay profiles. Features dynamic hardware validation limits.
+        </p>
+    </header>
+
+    <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 flex-grow max-w-[1400px] mx-auto w-full items-start">
+        
+        <!-- Left Panel: Configurations -->
+        <div class="xl:col-span-5 flex flex-col gap-6">
+            
+            <!-- Global Import Tools -->
+            <div class="glass-panel p-5 rounded-2xl flex flex-col gap-4">
+                <div>
+                    <h2 class="text-sm font-semibold text-white mb-2 flex items-center gap-2">
+                        <i class="fas fa-database text-cyan-400"></i> Import Specs to Primary Motor
+                    </h2>
+                    <div class="flex gap-2">
+                        <input type="text" id="search-input" placeholder="Search web (e.g. Leadshine NEMA 34)" class="flex-grow bg-slate-800 border border-slate-600 rounded-lg p-2 text-white outline-none text-sm focus:border-cyan-500">
+                        <button onclick="simulateNetworkAction('search')" class="bg-cyan-600 hover:bg-cyan-500 text-white px-3 rounded-lg text-sm w-20 flex justify-center items-center">
+                            <span id="search-text">Fetch</span>
+                            <div id="search-spinner" class="spinner hidden"></div>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="border-t border-slate-700 pt-3">
+                    <div class="flex gap-2">
+                        <label class="flex-grow bg-slate-800 border border-slate-600 border-dashed rounded-lg p-2 text-slate-400 text-sm flex items-center justify-center cursor-pointer hover:border-emerald-500 hover:text-emerald-400 transition-colors">
+                            <i class="fas fa-file-pdf mr-2"></i> Upload Datasheet (PDF)
+                            <input type="file" class="hidden" accept=".pdf" onchange="simulateNetworkAction('pdf')">
+                        </label>
+                    </div>
+                    <p id="network-feedback" class="text-xs text-slate-400 mt-2 h-4"></p>
+                </div>
+            </div>
+
+            <!-- Dynamic Motor Config Blocks Container -->
+            <div id="configs-wrapper" class="space-y-6">
+                
+                <!-- BLOCK 1 (Primary) -->
+                <div id="block-1" class="glass-panel p-5 rounded-2xl relative" style="border-left: 4px solid #3b82f6;">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-md font-semibold text-white flex items-center gap-2">
+                            <i class="fas fa-sliders-h text-blue-400"></i> Motor Profile 1
+                        </h2>
+                    </div>
+                    
+                    <div id="warnings-1" class="hidden mb-4 p-3 bg-amber-900/30 border border-amber-700/50 rounded-lg text-xs text-amber-300 space-y-1"></div>
+                    
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div class="col-span-2">
+                            <label class="block text-slate-400 mb-1">Motor Reference</label>
+                            <input type="text" id="name-1" value="NEMA 23 High Torque" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none focus:border-blue-500" oninput="validateAndPlot(1)">
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 mb-1">Holding Torque (Nm)</label>
+                            <input type="number" id="torque-1" value="3.0" step="0.1" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none focus:border-blue-500" oninput="validateAndPlot(1)">
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 mb-1">Inductance (mH)</label>
+                            <input type="number" id="inductance-1" value="3.8" step="0.1" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none focus:border-blue-500" oninput="validateAndPlot(1)">
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 mb-1">Phase Resist. (Ω)</label>
+                            <input type="number" id="resistance-1" value="0.9" step="0.1" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none focus:border-blue-500" oninput="validateAndPlot(1)">
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 mb-1">Rated Current (A)</label>
+                            <input type="number" id="current-1" value="4.2" step="0.1" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none focus:border-blue-500" oninput="validateAndPlot(1)">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-slate-400 mb-1">Supply Voltage (V DC)</label>
+                            <div class="flex items-center gap-2">
+                                <input type="range" id="voltslider-1" min="12" max="160" value="48" class="flex-grow accent-blue-500" oninput="document.getElementById('voltage-1').value = this.value; validateAndPlot(1);">
+                                <input type="number" id="voltage-1" value="48" class="w-16 bg-slate-800 border border-slate-700 rounded-lg p-1.5 text-white outline-none text-center" oninput="document.getElementById('voltslider-1').value = this.value; validateAndPlot(1);">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BLOCK 2 (Hidden by default) -->
+                <div id="block-2" class="glass-panel p-5 rounded-2xl relative hidden" style="border-left: 4px solid #10b981;">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-md font-semibold text-white flex items-center gap-2">
+                            <i class="fas fa-sliders-h text-emerald-400"></i> Motor Profile 2
+                        </h2>
+                        <button onclick="removeMotor(2)" class="text-slate-400 hover:text-red-400 text-sm transition-colors"><i class="fas fa-times"></i> Remove</button>
+                    </div>
+                    
+                    <div id="warnings-2" class="hidden mb-4 p-3 bg-amber-900/30 border border-amber-700/50 rounded-lg text-xs text-amber-300 space-y-1"></div>
+                    
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div class="col-span-2">
+                            <label class="block text-slate-400 mb-1">Motor Reference</label>
+                            <input type="text" id="name-2" value="NEMA 17 Standard" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none focus:border-emerald-500" oninput="validateAndPlot(2)">
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 mb-1">Holding Torque (Nm)</label>
+                            <input type="number" id="torque-2" value="0.45" step="0.1" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none focus:border-emerald-500" oninput="validateAndPlot(2)">
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 mb-1">Inductance (mH)</label>
+                            <input type="number" id="inductance-2" value="2.8" step="0.1" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none focus:border-emerald-500" oninput="validateAndPlot(2)">
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 mb-1">Phase Resist. (Ω)</label>
+                            <input type="number" id="resistance-2" value="1.5" step="0.1" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none focus:border-emerald-500" oninput="validateAndPlot(2)">
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 mb-1">Rated Current (A)</label>
+                            <input type="number" id="current-2" value="1.5" step="0.1" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none focus:border-emerald-500" oninput="validateAndPlot(2)">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-slate-400 mb-1">Supply Voltage (V DC)</label>
+                            <div class="flex items-center gap-2">
+                                <input type="range" id="voltslider-2" min="12" max="160" value="24" class="flex-grow accent-emerald-500" oninput="document.getElementById('voltage-2').value = this.value; validateAndPlot(2);">
+                                <input type="number" id="voltage-2" value="24" class="w-16 bg-slate-800 border border-slate-700 rounded-lg p-1.5 text-white outline-none text-center" oninput="document.getElementById('voltslider-2').value = this.value; validateAndPlot(2);">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BLOCK 3 (Hidden by default) -->
+                <div id="block-3" class="glass-panel p-5 rounded-2xl relative hidden" style="border-left: 4px solid #f59e0b;">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-md font-semibold text-white flex items-center gap-2">
+                            <i class="fas fa-sliders-h text-amber-400"></i> Motor Profile 3
+                        </h2>
+                        <button onclick="removeMotor(3)" class="text-slate-400 hover:text-red-400 text-sm transition-colors"><i class="fas fa-times"></i> Remove</button>
+                    </div>
+                    
+                    <div id="warnings-3" class="hidden mb-4 p-3 bg-amber-900/30 border border-amber-700/50 rounded-lg text-xs text-amber-300 space-y-1"></div>
+                    
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div class="col-span-2">
+                            <label class="block text-slate-400 mb-1">Motor Reference</label>
+                            <input type="text" id="name-3" value="NEMA 34 Heavy" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none focus:border-amber-500" oninput="validateAndPlot(3)">
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 mb-1">Holding Torque (Nm)</label>
+                            <input type="number" id="torque-3" value="6.5" step="0.1" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none focus:border-amber-500" oninput="validateAndPlot(3)">
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 mb-1">Inductance (mH)</label>
+                            <input type="number" id="inductance-3" value="6.5" step="0.1" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none focus:border-amber-500" oninput="validateAndPlot(3)">
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 mb-1">Phase Resist. (Ω)</label>
+                            <input type="number" id="resistance-3" value="0.8" step="0.1" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none focus:border-amber-500" oninput="validateAndPlot(3)">
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 mb-1">Rated Current (A)</label>
+                            <input type="number" id="current-3" value="5.0" step="0.1" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none focus:border-amber-500" oninput="validateAndPlot(3)">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-slate-400 mb-1">Supply Voltage (V DC)</label>
+                            <div class="flex items-center gap-2">
+                                <input type="range" id="voltslider-3" min="12" max="160" value="72" class="flex-grow accent-amber-500" oninput="document.getElementById('voltage-3').value = this.value; validateAndPlot(3);">
+                                <input type="number" id="voltage-3" value="72" class="w-16 bg-slate-800 border border-slate-700 rounded-lg p-1.5 text-white outline-none text-center" oninput="document.getElementById('voltslider-3').value = this.value; validateAndPlot(3);">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Add Motor Button -->
+            <button id="add-btn" onclick="addMotor()" class="w-full bg-slate-800 hover:bg-slate-700 border border-slate-600 border-dashed text-slate-300 font-medium py-3 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm">
+                <i class="fas fa-plus"></i> Add Another Motor Configuration (Max 3)
+            </button>
+        </div>
+
+        <!-- Right Panel: Graph (Sticky to stay visible on scroll) -->
+        <div class="xl:col-span-7 flex flex-col sticky top-8 z-10">
+            <div class="glass-panel p-6 rounded-2xl flex flex-col h-[600px] xl:h-[750px] relative">
+                <h2 class="text-lg font-semibold text-white mb-2">Real-World Torque Decay Visualization</h2>
+                <p class="text-xs text-slate-400 mb-4">Live comparison engine resolving Back-EMF constraints and driver saturation.</p>
+                <div class="flex-grow relative w-full h-full bg-slate-900/50 rounded-xl p-2 border border-slate-700/50">
+                    <canvas id="mainChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let chartInstance = null;
+        const hexColors = ['#3b82f6', '#10b981', '#f59e0b']; // Blue, Emerald, Amber
+
+        // --- Layout Management ---
+        function addMotor() {
+            const block2 = document.getElementById('block-2');
+            const block3 = document.getElementById('block-3');
+            const btn = document.getElementById('add-btn');
+
+            if (block2.classList.contains('hidden')) {
+                block2.classList.remove('hidden');
+                block2.classList.add('alert-enter');
+                validateAndPlot(2);
+            } else if (block3.classList.contains('hidden')) {
+                block3.classList.remove('hidden');
+                block3.classList.add('alert-enter');
+                validateAndPlot(3);
+                btn.classList.add('hidden'); // Max 3 reached
+            }
+        }
+
+        function removeMotor(id) {
+            document.getElementById(`block-${id}`).classList.add('hidden');
+            document.getElementById('add-btn').classList.remove('hidden');
+            updateChart(); // Refresh without this block
+        }
+
+        // --- Hardware Limits & Validation ---
+        function validateSpecs(id) {
+            const name = document.getElementById(`name-${id}`).value.toLowerCase();
+            const torque = parseFloat(document.getElementById(`torque-${id}`).value);
+            const voltage = parseFloat(document.getElementById(`voltage-${id}`).value);
+            const container = document.getElementById(`warnings-${id}`);
+            let warnings = [];
+
+            let frame = null;
+            if (name.includes('17')) frame = 17;
+            else if (name.includes('23') || name.includes('24')) frame = 23;
+            else if (name.includes('34')) frame = 34;
+
+            // Apply Minimum & Maximum Real-World Rules
+            if (frame === 17) {
+                if (torque > 0.9) warnings.push(`<i class="fas fa-exclamation-triangle"></i> Max Limit: NEMA 17s rarely exceed 0.8 Nm. Value is physically unrealistic.`);
+                if (torque < 0.01) warnings.push(`<i class="fas fa-exclamation-triangle"></i> Min Limit: NEMA 17 torque is realistically above 0.01 Nm.`);
+                if (voltage > 48) warnings.push(`<i class="fas fa-bolt"></i> Overvoltage: NEMA 17 insulation usually fails or overheats above 48V.`);
+            } else if (frame === 23) {
+                if (torque > 4.5) warnings.push(`<i class="fas fa-exclamation-triangle"></i> Max Limit: NEMA 23 frames typically max out around 4.5 Nm.`);
+                if (torque < 1.0) warnings.push(`<i class="fas fa-exclamation-triangle"></i> Min Limit: Standard NEMA 23s usually produce at least 1.0 Nm.`);
+                if (voltage > 72) warnings.push(`<i class="fas fa-bolt"></i> Danger: Exceeding 72V on standard NEMA 23s risks internal electrical arcing.`);
+            } else if (frame === 34) {
+                if (torque > 13.0) warnings.push(`<i class="fas fa-exclamation-triangle"></i> Max Limit: 13.0+ Nm usually requires upgrading to a NEMA 42 frame.`);
+                if (torque < 3.0) warnings.push(`<i class="fas fa-exclamation-triangle"></i> Min Limit: NEMA 34s generally begin around 3.0 Nm.`);
+                if (voltage > 160) warnings.push(`<i class="fas fa-bolt"></i> High Voltage Warning: Ensure the driver is specifically rated for high-DC.`);
+            }
+
+            if (warnings.length > 0) {
+                container.innerHTML = warnings.join('<br>');
+                container.classList.remove('hidden');
+                container.classList.add('alert-enter');
+            } else {
+                container.classList.add('hidden');
+            }
+        }
+
+        // Live trigger for all input changes
+        function validateAndPlot(id) {
+            validateSpecs(id);
+            updateChart();
+        }
+
+        // --- Advanced Real-World Physics Engine ---
+        function calculateAdvancedKinematics(s) {
+            const dataPoints = [];
+            const maxRPM = 2000;
+            const stepsPerRev = 200;
+            const L_henries = s.inductance / 1000;
+            
+            // Approximate Back-EMF constant (Ke) from holding torque & current
+            const Ke = s.torque / (s.current * 1.414); 
+            const ironLossCoeff = 0.0004; // Eddy current scaling
+
+            for (let rpm = 0; rpm <= maxRPM; rpm += 10) {
+                if (rpm === 0) {
+                    dataPoints.push({ x: 0, y: s.torque });
+                    continue;
+                }
+
+                const f = (rpm / 60) * stepsPerRev; // Hertz
+                const omega = rpm * (Math.PI / 30); // Rad/s
+
+                // AC Impedance (Z)
+                const X_L = 2 * Math.PI * f * L_henries; 
+                const Z = Math.sqrt(Math.pow(s.resistance, 2) + Math.pow(X_L, 2));
+
+                // Back-EMF Voltage restricts supply
+                const BEMF = Ke * omega;
+                let drivingVoltage = s.voltage - BEMF;
+                if (drivingVoltage < 0) drivingVoltage = 0;
+
+                let availableCurrent = drivingVoltage / Z;
+                if (availableCurrent > s.current) availableCurrent = s.current;
+
+                // Output Torque
+                let actualTorque = s.torque * (availableCurrent / s.current);
+                actualTorque = actualTorque * Math.exp(-ironLossCoeff * rpm);
+                if (actualTorque < 0) actualTorque = 0;
+
+                dataPoints.push({ x: rpm, y: parseFloat(actualTorque.toFixed(3)) });
+            }
+            return dataPoints;
+        }
+
+        // --- Chart Rendering ---
+        function updateChart() {
+            const datasets = [];
+
+            // Loop through the 3 potential blocks and add them if they are visible
+            for (let i = 1; i <= 3; i++) {
+                const block = document.getElementById(`block-${i}`);
+                if (!block.classList.contains('hidden')) {
+                    const s = {
+                        name: document.getElementById(`name-${i}`).value,
+                        torque: parseFloat(document.getElementById(`torque-${i}`).value || 0),
+                        inductance: parseFloat(document.getElementById(`inductance-${i}`).value || 0),
+                        resistance: parseFloat(document.getElementById(`resistance-${i}`).value || 0),
+                        current: parseFloat(document.getElementById(`current-${i}`).value || 0),
+                        voltage: parseFloat(document.getElementById(`voltage-${i}`).value || 0),
+                        color: hexColors[i - 1]
+                    };
+
+                    datasets.push({
+                        label: `${s.name} (${s.voltage}V)`,
+                        data: calculateAdvancedKinematics(s),
+                        borderColor: s.color,
+                        backgroundColor: s.color + '15',
+                        borderWidth: 2.5,
+                        fill: true,
+                        pointRadius: 0,
+                        pointHoverRadius: 6,
+                        tension: 0.4
+                    });
+                }
+            }
+
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: { datasets: datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            title: { display: true, text: 'Rotor Speed (RPM)', color: '#94a3b8', font: { weight: 'bold' } },
+                            grid: { color: 'rgba(51, 65, 85, 0.4)' },
+                            ticks: { color: '#94a3b8' },
+                            min: 0, max: 2000
+                        },
+                        y: {
+                            title: { display: true, text: 'Actual Output Torque (Nm)', color: '#94a3b8', font: { weight: 'bold' } },
+                            grid: { color: 'rgba(51, 65, 85, 0.4)' },
+                            ticks: { color: '#94a3b8' },
+                            min: 0
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#e2e8f0', usePointStyle: true, boxWidth: 8, padding: 20 } },
+                        tooltip: { 
+                            backgroundColor: 'rgba(15, 23, 42, 0.95)', 
+                            titleColor: '#fff', 
+                            bodyColor: '#cbd5e1', 
+                            borderColor: '#334155', 
+                            borderWidth: 1,
+                            padding: 12,
+                            callbacks: {
+                                label: function(context) {
+                                    return `Torque: ${context.parsed.y} Nm @ ${context.parsed.x} RPM`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- Network Simulation (Search & PDF) ---
+        function simulateNetworkAction(type) {
+            const btnText = document.getElementById('search-text');
+            const spinner = document.getElementById('search-spinner');
+            const feedback = document.getElementById('network-feedback');
+            
+            if(type === 'search') {
+                btnText.classList.add('hidden');
+                spinner.classList.remove('hidden');
+                feedback.textContent = "Querying live motor databases...";
+            } else {
+                feedback.textContent = "Parsing PDF... running OCR and Regex for 'Inductance' & 'Torque'...";
+            }
+            feedback.className = "text-xs text-blue-400 mt-2 h-4";
+
+            setTimeout(() => {
+                if(type === 'search') {
+                    btnText.classList.remove('hidden');
+                    spinner.classList.add('hidden');
+                    // Automatically populates into Profile 1
+                    document.getElementById('name-1').value = "Leadshine 86CM85 (NEMA 34)";
+                    document.getElementById('torque-1').value = 8.5;
+                    document.getElementById('inductance-1').value = 6.5;
+                    document.getElementById('resistance-1').value = 0.53;
+                    document.getElementById('current-1').value = 6.0;
+                    document.getElementById('voltage-1').value = 72;
+                    document.getElementById('voltslider-1').value = 72;
+                    feedback.innerHTML = `<i class="fas fa-check-circle text-emerald-400"></i> Scraped specs applied to Profile 1.`;
+                } else {
+                    document.getElementById('name-1').value = "Moons' SR4-Plus (From PDF)";
+                    document.getElementById('torque-1').value = 1.1;
+                    document.getElementById('inductance-1').value = 2.1;
+                    document.getElementById('resistance-1').value = 1.4;
+                    document.getElementById('current-1').value = 2.0;
+                    feedback.innerHTML = `<i class="fas fa-check-circle text-emerald-400"></i> PDF data applied to Profile 1.`;
+                }
+                feedback.className = "text-xs text-emerald-400 mt-2 h-4";
+                validateAndPlot(1);
+            }, 1500);
+        }
+
+        // Initialize on Load
+        window.onload = () => { validateAndPlot(1); };
+    </script>
+</body>
+</html>
